@@ -220,8 +220,10 @@ Prerequisites
 1.	Your application is running on http://localhost:8002
 2.	You have registered a user and verified OTP
 3.	You have an access token
+4.	Here we walk through the process of registration and linking customer on loan portal with the core banking solution
+   
 ________________________________________
-1. Register User (POST)
+# 1. Register User (POST)
 URL: http://localhost:8002/api/v1/auth/register
 Method: POST
 Headers:
@@ -242,7 +244,9 @@ Postman Setup:
 3.	Go to Body → raw → JSON
 4.	Paste the JSON above
 5.	Click Send
-Expected Response:
+
+
+# Expected Response:
 json
 {
   "message": "Registration successful. Please verify your email with OTP to get access tokens.",
@@ -253,7 +257,8 @@ json
   }
 }
 ________________________________________
-2. Verify OTP (POST)
+
+# 2. Verify OTP (POST)
 URL: http://localhost:8002/api/v1/auth/verify-otp
 Method: POST
 Headers:
@@ -267,8 +272,9 @@ json
   "purpose": "registration"
 }
 Note: Replace 123456 with the actual OTP from your logs/email.
-Postman Setup: Same as registration.
-Expected Response:
+
+# Postman Setup: Same as registration.
+# Expected Response:
 json
 {
   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -281,7 +287,7 @@ json
   "message": "Email verified and tokens generated successfully"
 }
 ________________________________________
-3. Get Profile (GET) - Requires Token
+# 3. Get Profile (GET) - Requires Token
 URL: http://localhost:8002/api/v1/auth/profile
 Method: GET
 Headers:
@@ -294,7 +300,9 @@ Postman Setup:
 3.	Go to Headers tab
 4.	Add header: Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 5.	Click Send
-Expected Response:
+
+
+# Expected Response:
 json
 {
   "id": 1,
@@ -307,7 +315,8 @@ json
   "created_at": "2024-01-15 10:30:00"
 }
 ________________________________________
-4. Get Customer Info by Email (POST)
+
+# 4. Get Customer Info by Email (POST)
 URL: http://localhost:8002/api/v1/auth/get-customer-info
 Method: POST
 Headers:
@@ -318,7 +327,8 @@ json
 {
   "email": "ogonnaifepe@gmail.com"
 }
-Expected Response:
+
+# Expected Response:
 json
 {
   "email": "ogonnaifepe@gmail.com",
@@ -328,7 +338,8 @@ json
   "account_number": null
 }
 ________________________________________
-5. Link Customer Profile by Email (POST)
+
+# 5. Link Customer Profile by Email (POST)
 URL: http://localhost:8002/api/v1/auth/link-customer-by-email?account_number=5000152687&email=ogonnaifepe@gmail.com
 Method: POST
 Headers:
@@ -340,7 +351,9 @@ Postman Setup:
 3.	Headers: Content-Type: application/json
 4.	Body: empty (or {})
 5.	Click Send
-Expected Response:
+
+
+# Expected Response:
 json
 {
   "message": "Customer profile linked successfully",
@@ -354,14 +367,18 @@ json
   }
 }
 ________________________________________
-6. Get Profile After Linking (GET)
+
+
+# 6. Get Profile After Linking (GET)
 URL: http://localhost:8002/api/v1/auth/profile
 Method: GET
 Headers:
 text
 Authorization: Bearer YOUR_ACCESS_TOKEN
 Content-Type: application/json
-Expected Response (After Linking):
+
+
+# Expected Response (After Linking):
 json
 {
   "id": 1,
@@ -375,7 +392,8 @@ json
 }
 ________________________________________
 Quick Postman Collection
-You can create a Postman collection with these requests:
+
+# You can create a Postman collection with these requests:
 #	Name	Method	URL
 1	Register	POST	/api/v1/auth/register
 2	Verify OTP	POST	/api/v1/auth/verify-otp
