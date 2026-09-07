@@ -5,10 +5,10 @@
 
 
 # create oracle schema
-schema creation.sql
+table creation.sql
 
 # Create tables and object
-schema creation.sql
+table creation.sql
 
 # set oracle db credentials
 .env
