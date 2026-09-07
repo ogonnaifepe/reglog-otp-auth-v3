@@ -7,6 +7,9 @@
 # create oracle schema
 schema creation.sql
 
+# Create tables and object
+schema creation.sql
+
 # set oracle db credntials
 .env
 
@@ -33,34 +36,52 @@ check the doc file
 
 Authentication Endpoints (/api/v1/auth)
 #	Method	Endpoint	Description	Authentication
-1	POST	/api/v1/auth/register	Register new user (sends OTP)	❌ No
-2	POST	/api/v1/auth/verify-otp	Verify registration OTP & get tokens	❌ No
-3	POST	/api/v1/auth/login	Login (sends OTP)	❌ No
-4	POST	/api/v1/auth/verify-login-otp	Verify login OTP & get tokens	❌ No
-5	POST	/api/v1/auth/token	Generate tokens directly (username+password)	❌ No
-6	POST	/api/v1/auth/refresh	Refresh expired access token	❌ No
+1	POST	/api/v1/auth/register	Register new user (sends OTP)	
+
+2	POST	/api/v1/auth/verify-otp	Verify registration OTP & get tokens
+
+3	POST	/api/v1/auth/login	Login (sends OTP)	
+
+4	POST	/api/v1/auth/verify-login-otp	Verify login OTP & get tokens	
+
+5	POST	/api/v1/auth/token	Generate tokens directly (username+password)	
+
+6	POST	/api/v1/auth/refresh	Refresh expired access token	
+
 7	POST	/api/v1/auth/logout	Logout (blacklist tokens)	✅ Yes (Access Token)
+
 8	GET	/api/v1/auth/profile	Get user profile	✅ Yes (Access Token)
 
 
 
 OTP Management Endpoints (/api/v1/otp)
+
 #	Method	Endpoint	Description	Authentication
-9	POST	/api/v1/otp/generate	Generate & send OTP	❌ No
-10	POST	/api/v1/otp/verify	Verify OTP	❌ No
-11	POST	/api/v1/otp/resend	Resend OTP	❌ No
-12	POST	/api/v1/otp/validate	Validate OTP (testing)	❌ No
-13	GET	/api/v1/otp/check-verification/{email}	Check verification status	❌ No
-14	DELETE	/api/v1/otp/invalidate/{email}	Invalidate user's OTPs	❌ No
+9	POST	/api/v1/otp/generate	Generate & send OTP	
+
+10	POST	/api/v1/otp/verify	Verify OTP	
+
+11	POST	/api/v1/otp/resend	Resend OTP	
+
+12	POST	/api/v1/otp/validate	Validate OTP (testing)	
+
+13	GET	/api/v1/otp/check-verification/{email}	Check verification status	
+
+14	DELETE	/api/v1/otp/invalidate/{email}	Invalidate user's OTPs	
+
 
 
 
 System Endpoints
 #	Method	Endpoint	Description	Authentication
-15	GET	/	API information	❌ No
-16	GET	/health	Health check	❌ No
-17	GET	/docs	Swagger UI documentation	❌ No
-18	GET	/redoc	ReDoc documentation	❌ No
+15	GET	/	API information	
+
+16	GET	/health	Health check	
+
+17	GET	/docs	Swagger UI documentation	
+
+18	GET	/redoc	ReDoc documentation	
+
 
 
 
@@ -68,21 +89,31 @@ This what an update from reglog-otp-auth
 
 Updated API Endpoints
 #	Method	Endpoint	Description	Authentication
-1	POST	/api/v1/auth/register	Register with full_name, email, phone_number, password	❌ No
-2	POST	/api/v1/auth/verify-otp	Verify registration OTP & get tokens	❌ No
-3	POST	/api/v1/auth/login	Login with email + password (sends OTP)	❌ No
-4	POST	/api/v1/auth/verify-login-otp	Verify login OTP & get tokens	❌ No
-5	POST	/api/v1/auth/token	Generate tokens with email + password	❌ No
-6	POST	/api/v1/auth/refresh	Refresh access token	❌ No
-7	POST	/api/v1/auth/logout	Logout	✅ Yes
-8	GET	/api/v1/auth/profile	Get full user profile	✅ Yes
-9	PUT	/api/v1/auth/profile	Update profile (full_name/phone)	✅ Yes
+1	POST	/api/v1/auth/register	Register with full_name, email, phone_number, password	
+
+2	POST	/api/v1/auth/verify-otp	Verify registration OTP & get tokens	
+
+3	POST	/api/v1/auth/login	Login with email + password (sends OTP)	
+
+4	POST	/api/v1/auth/verify-login-otp	Verify login OTP & get tokens	
+
+5	POST	/api/v1/auth/token	Generate tokens with email + password	
+
+6	POST	/api/v1/auth/refresh	Refresh access token	
+
+7	POST	/api/v1/auth/logout	Logout	
+
+8	GET	/api/v1/auth/profile	Get full user profile	
+
+9	PUT	/api/v1/auth/profile	Update profile (full_name/phone)	
+
 
 
 
 Testing Examples
-1. Register with Full Name, Email, Phone, Password
-bash
+# 1. Register with Full Name, Email, Phone, Password
+
+# bash
 curl -X POST "http://localhost:8002/api/v1/auth/register" \
   -H "Content-Type: application/json" \
   -d '{
@@ -92,7 +123,10 @@ curl -X POST "http://localhost:8002/api/v1/auth/register" \
     "password": "Test12345",
     "confirm_password": "Test12345"
   }'
-Response:
+
+
+# Response:
+
 json
 {
   "message": "Registration successful. Please verify your email with OTP to get access tokens.",
@@ -103,7 +137,9 @@ json
     "phone_number": "+1234567890"
   }
 }
-2. Verify OTP (Get Tokens)
+
+
+# 3. Verify OTP (Get Tokens)
 bash
 curl -X POST "http://localhost:8002/api/v1/auth/verify-otp" \
   -H "Content-Type: application/json" \
@@ -112,7 +148,9 @@ curl -X POST "http://localhost:8002/api/v1/auth/verify-otp" \
     "otp_code": "655636",
     "purpose": "registration"
   }'
-Response:
+
+
+# Response:
 json
 {
   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -129,7 +167,8 @@ json
   "refresh_expires_in": 604800,
   "message": "Email verified and tokens generated successfully"
 }
-3. Login (Email + Password)
+
+# 4. Login (Email + Password)
 bash
 curl -X POST "http://localhost:8002/api/v1/auth/login" \
   -H "Content-Type: application/json" \
@@ -137,13 +176,15 @@ curl -X POST "http://localhost:8002/api/v1/auth/login" \
     "email": "johndoe@gmail.com",
     "password": "Test12345"
   }'
-4. Get Profile (Returns Full User Info)
+
+# 5. Get Profile (Returns Full User Info)
 bash
 ACCESS_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 
 curl -X GET "http://localhost:8002/api/v1/auth/profile" \
   -H "Authorization: Bearer $ACCESS_TOKEN"
-Response:
+
+# Response:
 json
 {
   "id": 1,
@@ -154,7 +195,9 @@ json
   "created_at": "2024-01-15T10:30:00",
   "updated_at": "2024-01-15T10:30:00"
 }
-5. Update Profile
+
+
+# 5. Update Profile
 bash
 # Update full_name only
 curl -X PUT "http://localhost:8002/api/v1/auth/profile?full_name=Jane Doe" \
@@ -172,7 +215,7 @@ curl -X PUT "http://localhost:8002/api/v1/auth/profile?full_name=Jane Doe&phone_
   
   
   
-  How to Call Endpoints in Postman
+#  How to Call Endpoints in Postman
 Prerequisites
 1.	Your application is running on http://localhost:8002
 2.	You have registered a user and verified OTP
