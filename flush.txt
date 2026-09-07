@@ -1,0 +1,20 @@
+delete  from users;
+commit;
+
+delete from otp_codes;
+commit;
+
+delete from refresh_token_blacklist;
+commit;
+
+delete from access_token_blacklist;
+commit;
+
+
+drop table users;
+
+drop  table otp_codes;
+
+drop table refresh_token_blacklist;
+
+drop table access_token_blacklist;
