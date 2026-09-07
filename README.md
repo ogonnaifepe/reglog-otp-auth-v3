@@ -10,7 +10,7 @@ schema creation.sql
 # Create tables and object
 schema creation.sql
 
-# set oracle db credntials
+# set oracle db credentials
 .env
 
 
