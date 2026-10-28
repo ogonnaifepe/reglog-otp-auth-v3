@@ -1,18 +1,25 @@
+# run.py  minimal, no reload
 import uvicorn
-from app.config import Config
-import logging
+import os
+from dotenv import load_dotenv
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Load .env from project root
+from pathlib import Path
+ROOT = Path(__file__).resolve().parent
+load_dotenv(ROOT / ".env", override=True)
 
 if __name__ == "__main__":
-    logger.info(f"Starting application on {Config.APP_HOST}:{Config.APP_PORT}")
-    logger.info(f"Debug mode: {Config.DEBUG}")
-    
+    host = os.getenv("APP_HOST", "0.0.0.0")
+    port = int(os.getenv("APP_PORT", 8002))
+    print(f"Starting on {host}:{port}")
+
     uvicorn.run(
         "app.main:app",
-        host=Config.APP_HOST,
-        port=Config.APP_PORT,
-        reload=Config.DEBUG,
-        log_level="info"
+        host=host,
+        port=port,
+        #ssl_keyfile="./certs/key.pem",
+        #ssl_certfile="./certs/cert.pem",
+        reload=False,       # HARD-CODED OFF
+        workers=1,          # HARD-CODED SINGLE WORKER
+        log_level="info",
     )

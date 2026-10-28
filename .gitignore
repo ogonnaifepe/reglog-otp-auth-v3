@@ -1,0 +1,40 @@
+# Environment & Secrets (CRITICAL - NEVER COMMIT THESE)
+.env
+.env.enc
+*.pem
+*.key
+certs/
+sops-age-key.txt
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# Logs
+app.log
+security.log
+access.log
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Nginx/Apache configs (if keeping in repo)
+nginx.crt
+nginx.key
+
+# Database dumps
+*.sql
+*.dmp

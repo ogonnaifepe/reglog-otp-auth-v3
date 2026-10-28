@@ -2,9 +2,9 @@ import oracledb
 from app.config import Config
 import logging
 
-# Set logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 class Database:
     def __init__(self):
@@ -14,37 +14,33 @@ class Database:
     def connect(self):
         try:
             params = Config.get_connection_params()
-            logger.info(f"Connecting to Oracle...")
-            
+            logger.info("Connecting to Oracle...")
+
             if 'user' in params and 'password' in params and 'service_name' in params:
                 dsn = f"{params['host']}:{params['port']}/{params['service_name']}"
                 self.connection = oracledb.connect(
-                    user=params['user'],
-                    password=params['password'],
-                    dsn=dsn
+                    user=params['user'], password=params['password'], dsn=dsn
                 )
             elif 'user' in params and 'password' in params and 'dsn' in params:
                 self.connection = oracledb.connect(
-                    user=params['user'],
-                    password=params['password'],
-                    dsn=params['dsn']
+                    user=params['user'], password=params['password'], dsn=params['dsn']
                 )
             else:
                 self.connection = oracledb.connect(Config.DATABASE_URL)
-            
+
             logger.info("Database connected successfully")
-            
+
             cursor = self.connection.cursor()
             cursor.execute("SELECT 'Connection successful!' FROM DUAL")
             result = cursor.fetchone()
             cursor.close()
-            
+
             if result:
                 logger.info(f"Database connection verified: {result[0]}")
                 self.create_tables()
             else:
                 raise Exception("Database connection test failed")
-                
+
         except oracledb.DatabaseError as e:
             error, = e.args
             logger.error(f"Database connection error: {error.message}")
@@ -55,9 +51,8 @@ class Database:
 
     def create_tables(self):
         cursor = self.connection.cursor()
-        
         try:
-            # Create users table with all columns including profile and customer_no
+            # ==================== USERS ====================
             cursor.execute("""
                 BEGIN
                     EXECUTE IMMEDIATE '
@@ -68,73 +63,217 @@ class Database:
                             full_name VARCHAR2(255),
                             phone_number VARCHAR2(20),
                             profile CHAR(1) DEFAULT ''N'',
-                            customer_no VARCHAR2(20),
+                            customer_no VARCHAR2(20) UNIQUE,
                             is_verified CHAR(1) DEFAULT ''N'',
+                            is_locked CHAR(1) DEFAULT ''N'',
+                            locked_reason VARCHAR2(500),
+                            locked_at TIMESTAMP,
+                            reset_token VARCHAR2(500),
+                            reset_token_expires_at TIMESTAMP,
+                            registered_by_admin VARCHAR2(255),
                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                         )
                     ';
-                EXCEPTION
-                    WHEN OTHERS THEN
-                        IF SQLCODE != -955 THEN RAISE; END IF;
+                EXCEPTION WHEN OTHERS THEN
+                    IF SQLCODE != -955 THEN RAISE; END IF;
                 END;
             """)
-            logger.info("Users table created/verified successfully")
-            
-            # Add columns if they don't exist (for existing tables)
+            logger.info("Users table created/verified")
+
+            for col_name, col_type in [
+                ("full_name", "VARCHAR2(255)"),
+                ("phone_number", "VARCHAR2(20)"),
+                ("profile", "CHAR(1) DEFAULT 'N'"),
+                ("customer_no", "VARCHAR2(20)"),
+                ("is_locked", "CHAR(1) DEFAULT 'N'"),
+                ("locked_reason", "VARCHAR2(500)"),
+                ("locked_at", "TIMESTAMP"),
+                ("reset_token", "VARCHAR2(500)"),
+                ("reset_token_expires_at", "TIMESTAMP"),
+                ("registered_by_admin", "VARCHAR2(255)"),
+            ]:
+                try:
+                    cursor.execute(f"""
+                        BEGIN
+                            EXECUTE IMMEDIATE 'ALTER TABLE users ADD {col_name} {col_type}';
+                        EXCEPTION WHEN OTHERS THEN
+                            IF SQLCODE != -1430 THEN RAISE; END IF;
+                        END;
+                    """)
+                except:
+                    pass
+
             try:
                 cursor.execute("""
                     BEGIN
-                        EXECUTE IMMEDIATE 'ALTER TABLE users ADD full_name VARCHAR2(255)';
-                    EXCEPTION
-                        WHEN OTHERS THEN
-                            IF SQLCODE != -1430 THEN RAISE; END IF;
+                        EXECUTE IMMEDIATE 'ALTER TABLE users ADD CONSTRAINT uk_customer_no UNIQUE (customer_no)';
+                    EXCEPTION WHEN OTHERS THEN
+                        IF SQLCODE != -1408 AND SQLCODE != -2260 THEN RAISE; END IF;
                     END;
                 """)
-                logger.info("Added full_name column")
             except:
                 pass
-            
+
             try:
                 cursor.execute("""
                     BEGIN
-                        EXECUTE IMMEDIATE 'ALTER TABLE users ADD phone_number VARCHAR2(20)';
-                    EXCEPTION
-                        WHEN OTHERS THEN
-                            IF SQLCODE != -1430 THEN RAISE; END IF;
+                        EXECUTE IMMEDIATE 'ALTER TABLE users ADD CONSTRAINT uk_users_phone UNIQUE (phone_number)';
+                    EXCEPTION WHEN OTHERS THEN
+                        IF SQLCODE != -1408 AND SQLCODE != -2260 THEN RAISE; END IF;
                     END;
                 """)
-                logger.info("Added phone_number column")
             except:
                 pass
-            
-            try:
-                cursor.execute("""
-                    BEGIN
-                        EXECUTE IMMEDIATE 'ALTER TABLE users ADD profile CHAR(1) DEFAULT ''N''';
-                    EXCEPTION
-                        WHEN OTHERS THEN
+
+            # ==================== ADMINS ====================
+            cursor.execute("""
+                BEGIN
+                    EXECUTE IMMEDIATE '
+                        CREATE TABLE admins (
+                            id NUMBER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                            email VARCHAR2(255) UNIQUE NOT NULL,
+                            password_hash VARCHAR2(255) NOT NULL,
+                            full_name VARCHAR2(255) NOT NULL,
+                            role VARCHAR2(50) DEFAULT ''admin'',
+                            is_active CHAR(1) DEFAULT ''Y'',
+                            is_verified CHAR(1) DEFAULT ''N'',
+                            otp_verified_at TIMESTAMP,
+                            reset_token VARCHAR2(500),
+                            reset_token_expires_at TIMESTAMP,
+                            last_login TIMESTAMP,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                    ';
+                EXCEPTION WHEN OTHERS THEN
+                    IF SQLCODE != -955 THEN RAISE; END IF;
+                END;
+            """)
+            logger.info("Admins table created/verified")
+
+            for col_name, col_type in [
+                ("is_verified", "CHAR(1) DEFAULT 'N'"),
+                ("otp_verified_at", "TIMESTAMP"),
+                ("reset_token", "VARCHAR2(500)"),
+                ("reset_token_expires_at", "TIMESTAMP"),
+                ("last_login", "TIMESTAMP"),
+            ]:
+                try:
+                    cursor.execute(f"""
+                        BEGIN
+                            EXECUTE IMMEDIATE 'ALTER TABLE admins ADD {col_name} {col_type}';
+                        EXCEPTION WHEN OTHERS THEN
                             IF SQLCODE != -1430 THEN RAISE; END IF;
-                    END;
-                """)
-                logger.info("Added profile column")
-            except:
-                pass
-            
-            try:
-                cursor.execute("""
-                    BEGIN
-                        EXECUTE IMMEDIATE 'ALTER TABLE users ADD customer_no VARCHAR2(20)';
-                    EXCEPTION
-                        WHEN OTHERS THEN
+                        END;
+                    """)
+                except:
+                    pass
+
+            # ==================== ASSOCIATE_PROFILE ====================
+            cursor.execute("""
+                BEGIN
+                    EXECUTE IMMEDIATE '
+                        CREATE TABLE associate_profile (
+                            id NUMBER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                            email VARCHAR2(255) NOT NULL,
+                            account_number VARCHAR2(20) NOT NULL,
+                            customer_no VARCHAR2(20) NOT NULL,
+                            customer_name VARCHAR2(255),
+                            addr_line_1 VARCHAR2(500),
+                            city VARCHAR2(100),
+                            state VARCHAR2(100),
+                            country VARCHAR2(100),
+                            primary_officer_name VARCHAR2(255),
+                            registration_no VARCHAR2(100),
+                            registration_dt VARCHAR2(100),
+                            bu_nm VARCHAR2(255),
+                            industry_desc VARCHAR2(255),
+                            cust_seg_desc VARCHAR2(255),
+                            disbursement_limit NUMBER,
+                            term_cd VARCHAR2(10),
+                            term_value NUMBER,
+                            ref_desc VARCHAR2(100),
+                            rec_st VARCHAR2(10),
+                            corebank_email VARCHAR2(255),
+                            corebank_category VARCHAR2(50),
+                            corebank_branch VARCHAR2(255),
+                            corebank_cust_id NUMBER,
+                            status VARCHAR2(20) DEFAULT ''PENDING'',
+                            submitted_by VARCHAR2(255),
+                            reviewed_by VARCHAR2(255),
+                            reviewed_at TIMESTAMP,
+                            review_notes VARCHAR2(500),
+                            raw_response CLOB,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                    ';
+                EXCEPTION WHEN OTHERS THEN
+                    IF SQLCODE != -955 THEN RAISE; END IF;
+                END;
+            """)
+            logger.info("Associate_profile table created/verified")
+
+            for col_name, col_type in [
+                ("corebank_email", "VARCHAR2(255)"),
+                ("corebank_category", "VARCHAR2(50)"),
+                ("corebank_branch", "VARCHAR2(255)"),
+                ("corebank_cust_id", "NUMBER"),
+            ]:
+                try:
+                    cursor.execute(f"""
+                        BEGIN
+                            EXECUTE IMMEDIATE 'ALTER TABLE associate_profile ADD {col_name} {col_type}';
+                        EXCEPTION WHEN OTHERS THEN
                             IF SQLCODE != -1430 THEN RAISE; END IF;
-                    END;
-                """)
-                logger.info("Added customer_no column")
-            except:
-                pass
-            
-            # OTP table
+                        END;
+                    """)
+                except:
+                    pass
+
+            # ==================== AUDIT_TRAIL ====================
+            cursor.execute("""
+                BEGIN
+                    EXECUTE IMMEDIATE '
+                        CREATE TABLE audit_trail (
+                            id NUMBER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                            email VARCHAR2(255) NOT NULL,
+                            user_name VARCHAR2(255),
+                            action VARCHAR2(255) NOT NULL,
+                            page VARCHAR2(500),
+                            when_logged TIMESTAMP,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            ip_address VARCHAR2(50)
+                        )
+                    ';
+                EXCEPTION WHEN OTHERS THEN
+                    IF SQLCODE != -955 THEN RAISE; END IF;
+                END;
+            """)
+            logger.info("Audit_trail table created/verified")
+
+            # ==================== FAILED_LOGIN_ATTEMPTS ====================
+            cursor.execute("""
+                BEGIN
+                    EXECUTE IMMEDIATE '
+                        CREATE TABLE failed_login_attempts (
+                            id NUMBER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                            email VARCHAR2(255) NOT NULL,
+                            ip_address VARCHAR2(50),
+                            attempt_count NUMBER DEFAULT 0,
+                            last_attempt_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            locked_until TIMESTAMP,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                    ';
+                EXCEPTION WHEN OTHERS THEN
+                    IF SQLCODE != -955 THEN RAISE; END IF;
+                END;
+            """)
+            logger.info("Failed_login_attempts table created/verified")
+
+            # ==================== OTP ====================
             cursor.execute("""
                 BEGIN
                     EXECUTE IMMEDIATE '
@@ -148,121 +287,77 @@ class Database:
                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                         )
                     ';
-                EXCEPTION
-                    WHEN OTHERS THEN
-                        IF SQLCODE != -955 THEN RAISE; END IF;
+                EXCEPTION WHEN OTHERS THEN
+                    IF SQLCODE != -955 THEN RAISE; END IF;
                 END;
             """)
-            logger.info("OTP table created/verified successfully")
-            
-            # Access token blacklist table
-            try:
-                cursor.execute("""
-                    BEGIN
-                        EXECUTE IMMEDIATE '
-                            CREATE TABLE access_token_blacklist (
-                                id NUMBER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-                                token VARCHAR2(500) NOT NULL,
-                                email VARCHAR2(255) NOT NULL,
-                                expires_at TIMESTAMP NOT NULL,
-                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                            )
-                        ';
-                    EXCEPTION
-                        WHEN OTHERS THEN
+            logger.info("OTP table created/verified")
+
+            # ==================== BLACKLISTS ====================
+            for tbl in ['access_token_blacklist', 'refresh_token_blacklist', 'admin_token_blacklist']:
+                try:
+                    cursor.execute(f"""
+                        BEGIN
+                            EXECUTE IMMEDIATE '
+                                CREATE TABLE {tbl} (
+                                    id NUMBER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                                    token VARCHAR2(500) NOT NULL,
+                                    email VARCHAR2(255) NOT NULL,
+                                    expires_at TIMESTAMP NOT NULL,
+                                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                                )
+                            ';
+                        EXCEPTION WHEN OTHERS THEN
                             IF SQLCODE != -955 THEN RAISE; END IF;
-                    END;
-                """)
-                logger.info("Access token blacklist table created")
-            except:
-                pass
-            
-            # Refresh token blacklist table
-            try:
-                cursor.execute("""
-                    BEGIN
-                        EXECUTE IMMEDIATE '
-                            CREATE TABLE refresh_token_blacklist (
-                                id NUMBER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-                                token VARCHAR2(500) NOT NULL,
-                                email VARCHAR2(255) NOT NULL,
-                                expires_at TIMESTAMP NOT NULL,
-                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                            )
-                        ';
-                    EXCEPTION
-                        WHEN OTHERS THEN
-                            IF SQLCODE != -955 THEN RAISE; END IF;
-                    END;
-                """)
-                logger.info("Refresh token blacklist table created")
-            except:
-                pass
-            
-            # Create indexes
-            try:
-                cursor.execute("""
-                    BEGIN
-                        EXECUTE IMMEDIATE 'CREATE INDEX idx_users_email ON users(email)';
-                    EXCEPTION
-                        WHEN OTHERS THEN
-                            IF SQLCODE != -955 THEN RAISE; END IF;
-                    END;
-                """)
-            except:
-                pass
-            
-            try:
-                cursor.execute("""
-                    BEGIN
-                        EXECUTE IMMEDIATE 'CREATE INDEX idx_otp_email_purpose ON otp_codes(email, purpose)';
-                    EXCEPTION
-                        WHEN OTHERS THEN
-                            IF SQLCODE != -955 THEN RAISE; END IF;
-                    END;
-                """)
-            except:
-                pass
-            
-            try:
-                cursor.execute("""
-                    BEGIN
-                        EXECUTE IMMEDIATE 'CREATE INDEX idx_otp_expires ON otp_codes(expires_at)';
-                    EXCEPTION
-                        WHEN OTHERS THEN
-                            IF SQLCODE != -955 THEN RAISE; END IF;
-                    END;
-                """)
-            except:
-                pass
-            
-            try:
-                cursor.execute("""
-                    BEGIN
-                        EXECUTE IMMEDIATE 'CREATE INDEX idx_at_blacklist_token ON access_token_blacklist(token)';
-                    EXCEPTION
-                        WHEN OTHERS THEN
-                            IF SQLCODE != -955 THEN RAISE; END IF;
-                    END;
-                """)
-            except:
-                pass
-            
-            try:
-                cursor.execute("""
-                    BEGIN
-                        EXECUTE IMMEDIATE 'CREATE INDEX idx_rt_blacklist_token ON refresh_token_blacklist(token)';
-                    EXCEPTION
-                        WHEN OTHERS THEN
-                            IF SQLCODE != -955 THEN RAISE; END IF;
-                    END;
-                """)
-            except:
-                pass
-            
+                        END;
+                    """)
+                except:
+                    pass
+            logger.info("Blacklist tables created/verified")
+
+            # ==================== INDEXES ====================
+            indexes = [
+                "CREATE INDEX idx_users_email ON users(email)",
+                "CREATE INDEX idx_users_customer_no ON users(customer_no)",
+                "CREATE INDEX idx_users_phone ON users(phone_number)",
+                "CREATE INDEX idx_users_is_locked ON users(is_locked)",
+                "CREATE INDEX idx_admins_email ON admins(email)",
+                "CREATE INDEX idx_assoc_email ON associate_profile(email)",
+                "CREATE INDEX idx_assoc_status ON associate_profile(status)",
+                "CREATE INDEX idx_assoc_status_created ON associate_profile(status, created_at DESC)",
+                "CREATE INDEX idx_assoc_email_created ON associate_profile(email, created_at DESC)",
+                "CREATE INDEX idx_assoc_customer_no ON associate_profile(customer_no)",
+                "CREATE INDEX idx_assoc_account_no ON associate_profile(account_number)",
+                "CREATE INDEX idx_assoc_corebank_email ON associate_profile(corebank_email)",
+                "CREATE INDEX idx_assoc_corebank_cust_id ON associate_profile(corebank_cust_id)",
+                "CREATE INDEX idx_audit_email ON audit_trail(email)",
+                "CREATE INDEX idx_audit_action ON audit_trail(action)",
+                "CREATE INDEX idx_audit_created_at ON audit_trail(created_at DESC)",
+                "CREATE INDEX idx_audit_email_created ON audit_trail(email, created_at DESC)",
+                "CREATE INDEX idx_audit_ip ON audit_trail(ip_address)",
+                "CREATE INDEX idx_fla_email ON failed_login_attempts(email)",
+                "CREATE INDEX idx_fla_locked_until ON failed_login_attempts(locked_until)",
+                "CREATE INDEX idx_otp_email_purpose ON otp_codes(email, purpose)",
+                "CREATE INDEX idx_otp_expires ON otp_codes(expires_at)",
+                "CREATE INDEX idx_at_blacklist_token ON access_token_blacklist(token)",
+                "CREATE INDEX idx_rt_blacklist_token ON refresh_token_blacklist(token)",
+                "CREATE INDEX idx_admin_bl_token ON admin_token_blacklist(token)",
+            ]
+            for idx_sql in indexes:
+                try:
+                    cursor.execute(f"""
+                        BEGIN
+                            EXECUTE IMMEDIATE '{idx_sql}';
+                        EXCEPTION WHEN OTHERS THEN
+                            IF SQLCODE != -955 AND SQLCODE != -1408 THEN RAISE; END IF;
+                        END;
+                    """)
+                except:
+                    pass
+
             self.connection.commit()
             logger.info("All database objects created/verified successfully")
-            
+
         except oracledb.DatabaseError as e:
             error, = e.args
             logger.error(f"Database error: {error.message}")
@@ -290,16 +385,14 @@ class Database:
     def fetch_one(self, query, params=None):
         cursor = self.execute_query(query, params)
         try:
-            result = cursor.fetchone()
-            return result
+            return cursor.fetchone()
         finally:
             cursor.close()
 
     def fetch_all(self, query, params=None):
         cursor = self.execute_query(query, params)
         try:
-            result = cursor.fetchall()
-            return result
+            return cursor.fetchall()
         finally:
             cursor.close()
 
@@ -308,5 +401,5 @@ class Database:
             self.connection.close()
             logger.info("Database connection closed")
 
-# Create global database instance
+
 db = Database()
